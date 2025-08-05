@@ -1,0 +1,99 @@
+# Flutter项目编码规范 - Cursor Rules
+
+## 整体规则
+- 总是用中文回答问题和提供说明
+
+## 1. 屏幕尺寸适配
+- 所有屏幕宽度使用 `1.sw`
+- 所有屏幕高度使用 `1.sh`
+
+## 2. 颜色使用规范
+- 所有颜色定义如 `Color(0xFF98DEFE)` 都要改为 `toColor("98DEFE")`
+- 必须导入 `color_utils` 类
+
+## 3. 间距处理
+- `SizedBox(width: 8.w)` 改为 `8.horizontalSpace`
+- `SizedBox(height: 8.h)` 改为 `8.verticalSpace`
+- 使用 flutter_screenutil 插件，不要自动创建扩展实现
+
+## 4. Controller规范
+- 所有controller类都继承 `BaseController`
+
+## 5. 图片资源管理
+- 所有图片存放在 `assets/images` 目录下
+- 需要在 `AssetsUtils` 中创建对应的常量代表每个图片路径
+- 最终通过常量引用图片
+
+## 6. Widget方法格式
+使用箭头函数格式，而不是传统的花括号格式：
+```dart
+// 推荐格式
+Widget _buildContentText() => Container(
+  margin: EdgeInsets.symmetric(horizontal: 20.w),
+  padding: EdgeInsets.all(20.w),
+  child: Obx(() => Text(
+    controller.aboutUsText.value,
+    style: TextStyle(
+      fontSize: 16.sp,
+      color: Colors.black.withOpacity(0.7),
+      height: 1.5,
+    ),
+  )),
+);
+
+// 避免使用
+Widget _buildContentText() {
+  return Container(...);
+}
+```
+
+## 7. 无限大小处理
+- `double.infinity` 都用 `1.sw` 或 `1.sh` 替换
+
+## 8. Git管理
+- 创建文件后自动添加到git中（add操作），不进行commit
+
+## 9. 文件命名规范
+- 所有文件都使用下划线命名法（snake_case）
+- 不使用驼峰命名法（camelCase）
+
+## 10. 状态管理
+- 使用 GetX 状态管理框架
+
+## 11. 日志打印
+- 所有日志打印都使用 `flog()` 实现
+
+## 12. 页面结构
+- 所有page都继承 `StatelessWidget`，不使用 `StatefulWidget`
+- 使用 `BaseScaffold` 而不是普通的 `Scaffold`
+
+## 13. 响应式变量声明
+```dart
+// 推荐格式
+final selectedComicTitle = ''.obs;
+
+// 避免使用
+final RxString selectedComicTitle = ''.obs;
+```
+
+## 14. 测试图片
+- 所有图片使用测试的网络图片
+- 测试图片URL定义在 `main.dart` 顶部的 `testImg` 变量中
+
+## 15. 网络图片处理
+- 使用 `network_image_util.dart` 中的方法
+- 可以直接设置圆角
+
+## 16. Controller初始化
+- 统一使用以下方式初始化：
+```dart
+final controller = Get.put(RankController());
+```
+
+## 17. 页面导航
+- 项目不使用路由系统
+- 直接导航使用：`Get.to(() => XXXPage())`
+
+---
+
+以上规则适用于整个Flutter项目的开发，请严格遵守这些约定以保持代码一致性。 
