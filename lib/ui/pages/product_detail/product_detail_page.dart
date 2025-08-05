@@ -1,9 +1,11 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:sharely/base/base_scaffold.dart';
 import 'package:sharely/ui/dialog/share/share_dialog.dart';
+import 'package:sharely/ui/pages/cart/cart_controller.dart';
 import 'package:sharely/ui/pages/cart/cart_page.dart';
 import 'package:sharely/ui/pages/product_detail/product_detail_controller.dart';
 import 'package:sharely/utils/assets_utils.dart';
@@ -32,16 +34,21 @@ class ProductDetailPage extends StatelessWidget {
                   _buildImageSection(),
                   _buildThumbnailList(),
                   _buildProductInfo(),
-                  _buildSizeSelector(),
-                  _buildDivider(),
-                  _buildColorSelector(),
-                  _buildDivider(),
+                  if (controller.hasSizeOption) ...[
+                    _buildSizeSelector(),
+                    _buildDivider(),
+                  ],
+                  if (controller.hasColorOption) ...[
+                    _buildColorSelector(),
+                    _buildDivider(),
+                  ],
                   _buildQuantitySelector(),
                 ],
               ),
             ),
     ),
     bottomNavigationBar: InkWell(
+      onTap: controller.addToCart,
       child: Container(
         width: 1.sw,
         height: 44.h,
@@ -73,36 +80,50 @@ class ProductDetailPage extends StatelessWidget {
       onTap: () => Get.back(),
       child: Icon(Icons.arrow_back_ios_new_outlined, color: toColor("3d3d3d")),
     ),
-    title: Row(
-      children: [
-        NetworkImageUtil.loadCircleImage(
-          'https://picsum.photos/400/400?random=5',
-          size: 32.w,
-        ),
-        6.horizontalSpace,
-        Text(
-          'Laura Geller',
-          style: TextStyle(
-            fontSize: 18.sp,
-            color: toColor("#292524"),
-            fontWeight: FontWeight.bold,
-          ),
-          textAlign: TextAlign.center,
-        ),
-      ],
+    title: Obx(
+      () => controller.isDataLoad.value
+          ? Container()
+          : Row(
+              children: [
+                NetworkImageUtil.loadCircleImage(
+                  '${controller.product.value?.seller?.photo}',
+                  size: 32.w,
+                ),
+                6.horizontalSpace,
+                Text(
+                  '${controller.product.value?.seller?.name}',
+                  style: TextStyle(
+                    fontSize: 18.sp,
+                    color: toColor("#292524"),
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
     ),
     actions: [
       IconButton(
         onPressed: () => Get.to(() => CartPage()),
-        icon: badges.Badge(
-          showBadge: true,
-          badgeContent: Text(
-            "1",
-            style: TextStyle(color: Colors.white, fontSize: 10.sp),
-          ),
-          position: badges.BadgePosition.topEnd(end: -5.w, top: -12.h),
-          child: SvgPicture.asset(AssetsUtils.cart_ic, height: 18.h),
-        ),
+        icon: Get.isRegistered<CartController>()
+            ? Obx(() {
+                final cartController = Get.find<CartController>();
+                // 使用新的数据结构获取购物车商品数量
+                final itemCount = cartController.totalItemCount;
+                return badges.Badge(
+                  showBadge: itemCount > 0,
+                  badgeContent: Text(
+                    itemCount.toString(),
+                    style: TextStyle(color: Colors.white, fontSize: 10.sp),
+                  ),
+                  position: badges.BadgePosition.topEnd(end: -5.w, top: -12.h),
+                  child: SvgPicture.asset(AssetsUtils.cart_ic, height: 18.h),
+                );
+              })
+            : badges.Badge(
+                showBadge: false,
+                child: SvgPicture.asset(AssetsUtils.cart_ic, height: 18.h),
+              ),
       ),
     ],
     centerTitle: false,
@@ -111,7 +132,7 @@ class ProductDetailPage extends StatelessWidget {
   // 图片区域
   Widget _buildImageSection() => Container(
     height: 370.h,
-    margin: EdgeInsets.symmetric(horizontal: 10.w),
+    margin: EdgeInsets.symmetric(horizontal: 10.r),
     decoration: BoxDecoration(
       color: toColor('#F6F3F3'),
       borderRadius: BorderRadius.circular(16.r),
@@ -137,14 +158,14 @@ class ProductDetailPage extends StatelessWidget {
   Widget _buildThumbnailList() => Container(
     height: 40.h,
     margin: EdgeInsets.only(top: 16.h),
-    child: Obx(
-      () => ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: EdgeInsets.symmetric(horizontal: 16.w),
-        itemCount: controller.productImages.length,
-        itemBuilder: (context, index) => InkWell(
-          onTap: () => controller.changeImage(index),
-          child: Container(
+    child: ListView.builder(
+      scrollDirection: Axis.horizontal,
+      padding: EdgeInsets.symmetric(horizontal: 16.w),
+      itemCount: controller.productImages.length,
+      itemBuilder: (context, index) => InkWell(
+        onTap: () => controller.changeImage(index),
+        child: Obx(
+          () => Container(
             width: 40.w,
             height: 40.w,
             margin: EdgeInsets.only(right: 8.w),
@@ -179,7 +200,7 @@ class ProductDetailPage extends StatelessWidget {
         // 产品名称
         Obx(
           () => Text(
-            controller.productTitle.value,
+            controller.product.value?.title ?? '',
             style: TextStyle(
               fontSize: 18.sp,
               fontWeight: FontWeight.bold,
@@ -193,21 +214,21 @@ class ProductDetailPage extends StatelessWidget {
           children: [
             Icon(Icons.star, color: toColor('#292524'), size: 14.sp),
             4.horizontalSpace,
-            Obx(
-              () => Text(
-                '${controller.productRating.value}',
-                style: TextStyle(
-                  fontSize: 14.sp,
-                  fontWeight: FontWeight.w600,
-                  color: toColor('#292524'),
-                ),
+            Text(
+              controller.product.value?.rating.toStringAsFixed(2) ?? '0.00',
+              style: TextStyle(
+                fontSize: 14.sp,
+                fontWeight: FontWeight.w600,
+                color: toColor('#292524'),
               ),
             ),
             8.horizontalSpace,
-            Obx(
-              () => Text(
-                '(${controller.productReviews.value} ${'reviews'.tr})',
-                style: TextStyle(fontSize: 14.sp, color: toColor('999999')),
+            Text(
+              '(${controller.product.value?.reviewCount ?? 0} ${'reviews'.tr})',
+              style: TextStyle(
+                fontSize: 14.sp,
+                color: toColor('999999'),
+                fontWeight: FontWeight.w500,
               ),
             ),
           ],
@@ -216,31 +237,27 @@ class ProductDetailPage extends StatelessWidget {
         // 价格和分享收益
         Row(
           children: [
-            Obx(
-              () => Text(
-                '\$${controller.productPrice.value}',
-                style: TextStyle(
-                  fontSize: 24.sp,
-                  fontWeight: FontWeight.bold,
-                  color: toColor('FF6B6B'),
-                ),
+            Text(
+              '\$${controller.product.value?.variants.first.calculatedPrice?.rawCalculatedAmount?.value}',
+              style: TextStyle(
+                fontSize: 24.sp,
+                fontWeight: FontWeight.bold,
+                color: toColor('FF6B6B'),
               ),
             ),
             6.horizontalSpace,
             Expanded(
-              child: Obx(
-                () => Text(
-                  '${controller.originalPrice.value}',
-                  style: TextStyle(
-                    fontSize: 14.sp,
-                    color: toColor('999999'),
-                    decoration: TextDecoration.lineThrough,
-                  ),
-                ).paddingOnly(top: 6.h),
-              ),
+              child: Text(
+                '${controller.product.value?.variants.first.calculatedPrice?.rawOriginalAmount?.value}',
+                style: TextStyle(
+                  fontSize: 14.sp,
+                  color: toColor('999999'),
+                  decoration: TextDecoration.lineThrough,
+                ),
+              ).paddingOnly(top: 6.h),
             ),
             InkWell(
-              onTap: () => _showShareDialog(),
+              onTap: () => controller.showShareDialog(),
               child: Container(
                 padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
                 decoration: BoxDecoration(
@@ -249,16 +266,21 @@ class ProductDetailPage extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.share, color: toColor('FF6B6B'), size: 16.sp),
+                    SvgPicture.asset(
+                      AssetsUtils.alpha_ic,
+                      width: 14.w,
+                      colorFilter: ColorFilter.mode(
+                        toColor('FF6B6B'),
+                        BlendMode.srcIn,
+                      ),
+                    ),
                     4.horizontalSpace,
-                    Obx(
-                      () => Text(
-                        '${'Share and earn'.tr} ${controller.shareEarning.value}',
-                        style: TextStyle(
-                          fontSize: 12.sp,
-                          color: toColor('FF6B6B'),
-                          fontWeight: FontWeight.w500,
-                        ),
+                    Text(
+                      '${'Share and earn'.tr} ${controller.product.value?.shareEarnPercent ?? 0}%',
+                      style: TextStyle(
+                        fontSize: 12.sp,
+                        color: toColor('FF6B6B'),
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
@@ -297,7 +319,7 @@ class ProductDetailPage extends StatelessWidget {
                 children: [
                   Obx(
                     () => Text(
-                      controller.selectedSize.value,
+                      controller.currentSize,
                       style: TextStyle(
                         fontSize: 14.sp,
                         fontWeight: FontWeight.w600,
@@ -334,23 +356,26 @@ class ProductDetailPage extends StatelessWidget {
               ),
               Row(
                 children: [
-                  Obx(
-                    () => Container(
+                  Obx(() {
+                    final color = controller.currentColor;
+                    final colorHex = controller.colorOptionsMetadata[color];
+
+                    return Container(
                       width: 20.w,
                       height: 20.w,
                       decoration: BoxDecoration(
-                        color: toColor(
-                          controller.colorMap[controller.selectedColor.value] ??
-                              'FF8C42',
-                        ),
+                        color: colorHex != null
+                            ? toColor(colorHex)
+                            : toColor('FF8C42'),
                         shape: BoxShape.circle,
+                        border: Border.all(color: Colors.grey, width: 1.w),
                       ),
-                    ),
-                  ),
+                    );
+                  }),
                   8.horizontalSpace,
                   Obx(
                     () => Text(
-                      controller.selectedColor.value,
+                      controller.currentColor,
                       style: TextStyle(
                         fontSize: 14.sp,
                         fontWeight: FontWeight.w600,
@@ -431,21 +456,4 @@ class ProductDetailPage extends StatelessWidget {
       ],
     ),
   );
-
-  // 显示分享弹窗
-  void _showShareDialog() {
-    showCustom(
-      ShareDialog(
-        productTitle: controller.productTitle.value,
-        productPrice: '\$${controller.productPrice.value}',
-        originalPrice: controller.originalPrice.value.toString(),
-        rating: '${controller.productRating.value}',
-        reviews: '${controller.productReviews.value}',
-        productImage: controller.productImages.isNotEmpty
-            ? controller.productImages[controller.currentImageIndex.value]
-            : 'https://picsum.photos/400/400?random=1',
-        shareUrl: 'https://sharely.love/product/B...',
-      ),
-    );
-  }
 }

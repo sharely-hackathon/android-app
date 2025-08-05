@@ -1,12 +1,12 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
 import 'package:sharely/utils/assets_utils.dart';
+import '../../../models/product_model.dart';
 import '../../../utils/color_utils.dart';
 import '../../../utils/network_image_util.dart';
-import '../../../utils/toast_utils.dart';
-import '../../dialog/language/switch_language_dialog.dart';
 import '../search/search_page.dart';
 import 'home_controller.dart';
 
@@ -56,25 +56,22 @@ class HomePage extends StatelessWidget {
           ),
         ),
         InkWell(
-          onTap: () => showCustom(
-            SwitchLanguageDialog(),
-            alignment: Alignment.bottomCenter,
-          ),
-          child: Row(
+          onTap: () => controller.showCountryDialog(),
+          child: Obx(() => Row(
             children: [
+              if (controller.selectedCountry.value != null) ...[
+                _buildCountryFlag(controller.selectedCountry.value!.iso2),
+                6.horizontalSpace,
+              ],
               Text(
-                "English".tr,
-                style: TextStyle(
-                  color: toColor('#3D3D3D'),
-                  fontSize: 13.sp,
-                ),
+                controller.selectedCountry.value?.displayName.isEmpty == true
+                    ? (controller.selectedCountry.value?.name ?? "Select Country")
+                    : (controller.selectedCountry.value?.displayName ?? "Select Country"),
+                style: TextStyle(color: toColor('#3D3D3D'), fontSize: 13.sp),
               ),
-              const Icon(
-                Icons.arrow_drop_down_sharp,
-                color: Colors.black,
-              ),
+              const Icon(Icons.arrow_drop_down_sharp, color: Colors.black),
             ],
-          ),
+          )),
         ),
       ],
     ),
@@ -87,7 +84,7 @@ class HomePage extends StatelessWidget {
           onTap: () => Get.to(() => SearchPage()),
           child: Container(
             height: 40.h,
-            margin: EdgeInsets.only(left: 16.w, right: 6.w),
+            margin: EdgeInsets.only(left: 16.w, right: 16.w),
             padding: EdgeInsets.symmetric(horizontal: 16.w),
             decoration: BoxDecoration(
               color: toColor("ffffff"),
@@ -111,43 +108,46 @@ class HomePage extends StatelessWidget {
           ),
         ),
       ),
-      InkWell(
-        onTap: () => controller.showFilterDialog(),
-        child: Container(
-          width: 40.h,
-          height: 40.h,
-          margin: EdgeInsets.only(right: 16.w),
-          decoration: BoxDecoration(
-            color: toColor("ffffff"),
-            borderRadius: BorderRadius.circular(25.r),
-          ),
-          child: Icon(Icons.tune, color: toColor("333333"), size: 20.sp),
-        ),
-      ),
+      // InkWell(
+      //   onTap: () => controller.showFilterDialog(),
+      //   child: Container(
+      //     width: 40.h,
+      //     height: 40.h,
+      //     margin: EdgeInsets.only(right: 16.w),
+      //     decoration: BoxDecoration(
+      //       color: toColor("ffffff"),
+      //       borderRadius: BorderRadius.circular(25.r),
+      //     ),
+      //     child: Icon(Icons.tune, color: toColor("333333"), size: 20.sp),
+      //   ),
+      // ),
     ],
   );
 
   Widget _buildProductGrid() => Container(
     padding: EdgeInsets.all(16.w),
     child: Obx(
-      () => GridView.builder(
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          crossAxisSpacing: 10.w,
-          mainAxisSpacing: 10.h,
-          childAspectRatio: 0.78,
-        ),
-        itemCount: controller.products.length,
-        itemBuilder: (context, index) {
-          final product = controller.products[index];
-          return _buildProductItem(product);
-        },
-      ),
+      () => controller.products.value != null
+          ? GridView.builder(
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 10.w,
+                mainAxisSpacing: 10.h,
+                childAspectRatio: 0.72,
+              ),
+              itemCount: controller.products.value!.products.length,
+              itemBuilder: (context, index) {
+                final product = controller.products.value?.products[index];
+                return _buildProductItem(product!);
+              },
+            )
+          : Container(),
     ),
   );
 
   Widget _buildProductItem(Product product) => InkWell(
     onTap: () => controller.onProductTap(product),
+    borderRadius: BorderRadius.circular(16.r),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [_buildProductImage(product), _buildProductInfo(product)],
@@ -162,7 +162,7 @@ class HomePage extends StatelessWidget {
           borderRadius: BorderRadius.circular(16.r),
         ),
         child: NetworkImageUtil.loadRoundedImage(
-          product.image,
+          product.thumbnail,
           height: 140.h,
           width: 1.sw,
           radius: 16.r,
@@ -184,7 +184,7 @@ class HomePage extends StatelessWidget {
               SvgPicture.asset(AssetsUtils.alpha_ic, height: 12.h),
               4.horizontalSpace,
               Text(
-                '${'Earn'.tr} ${product.earnPercentage}',
+                '${'Earn'.tr} ${product.shareEarnPercent}%',
                 style: TextStyle(
                   fontSize: 10.sp,
                   color: Colors.white,
@@ -202,9 +202,11 @@ class HomePage extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
+        4.verticalSpace,
+        SizedBox(
+          height: 14.sp * 1.3 * 2,
           child: Text(
-            product.name,
+            product.title,
             style: TextStyle(
               fontSize: 14.sp,
               color: toColor("#292524"),
@@ -215,10 +217,11 @@ class HomePage extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
           ),
         ),
+        4.verticalSpace,
         Row(
           children: [
             Text(
-              '\$${product.price.toStringAsFixed(2)}',
+              '\$${product.variants.first.calculatedPrice?.rawCalculatedAmount?.value}',
               style: TextStyle(
                 fontSize: 16.sp,
                 color: toColor("FF6B6B"),
@@ -228,7 +231,7 @@ class HomePage extends StatelessWidget {
             8.horizontalSpace,
             Expanded(
               child: Text(
-                product.originalPrice.toStringAsFixed(2),
+                "${product.variants.first.calculatedPrice?.rawOriginalAmount?.value}",
                 style: TextStyle(
                   fontSize: 12.sp,
                   color: toColor("999999"),
@@ -241,7 +244,7 @@ class HomePage extends StatelessWidget {
                 Icon(Icons.star, color: toColor("#292524"), size: 14.sp),
                 2.horizontalSpace,
                 Text(
-                  product.rating.toString(),
+                  product.rating.toStringAsFixed(2),
                   style: TextStyle(
                     fontSize: 12.sp,
                     color: toColor("#292524"),
@@ -255,4 +258,33 @@ class HomePage extends StatelessWidget {
       ],
     ),
   );
+
+  Widget _buildCountryFlag(String iso2) => Container(
+        width: 20.w,
+        height: 14.h,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(2.r),
+          border: Border.all(
+            color: toColor('E0E0E0'),
+            width: 0.5,
+          ),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(2.r),
+          child: SvgPicture.asset(
+            'assets/images/countries/${iso2.toLowerCase()}.svg',
+            width: 20.w,
+            height: 14.h,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) => Container(
+              color: toColor('F5F5F5'),
+              child: Icon(
+                Icons.flag,
+                size: 10.sp,
+                color: toColor('CCCCCC'),
+              ),
+            ),
+          ),
+        ),
+      );
 }

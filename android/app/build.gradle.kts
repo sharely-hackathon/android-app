@@ -39,6 +39,11 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        ndk {
+            //设置支持的SO库架构
+            abiFilters += "arm64-v8a"
+        }
     }
 
     buildTypes {

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import '../../../../base/base_scaffold.dart';
+import '../../../../models/region_model.dart';
 import '../../../../utils/color_utils.dart';
 import 'shipping_address_edit_controller.dart';
 
@@ -20,22 +22,28 @@ class ShippingAddressEditPage extends StatelessWidget {
   Widget _buildContent() => SingleChildScrollView(
     padding: EdgeInsets.all(20.w),
     child: Column(
+      spacing: 16.r,
       children: [
+        // _buildAddressNameField(),
+        // 16.verticalSpace,
         _buildNameRow(),
-        16.verticalSpace,
+        // 16.verticalSpace,
+        // _buildCompanyField(),
         _buildCountryField(),
-        16.verticalSpace,
         _buildStateField(),
-        16.verticalSpace,
         _buildCityAndPostalRow(),
-        16.verticalSpace,
         _buildAddressLine1Field(),
-        16.verticalSpace,
         _buildAddressLine2Field(),
-        40.verticalSpace,
+        // 16.verticalSpace,
+        // _buildPhoneField(),
         _buildBottomButtons(),
       ],
     ),
+  );
+
+  Widget _buildAddressNameField() => _buildTextField(
+    controller: controller.addressNameController,
+    hintText: 'Address name'.tr,
   );
 
   Widget _buildNameRow() => Row(
@@ -54,6 +62,11 @@ class ShippingAddressEditPage extends StatelessWidget {
         ),
       ),
     ],
+  );
+
+  Widget _buildCompanyField() => _buildTextField(
+    controller: controller.companyController,
+    hintText: 'Company (optional)'.tr,
   );
 
   Widget _buildCountryField() => _buildDropdownField(
@@ -93,6 +106,11 @@ class ShippingAddressEditPage extends StatelessWidget {
   Widget _buildAddressLine2Field() => _buildTextField(
     controller: controller.addressLine2Controller,
     hintText: 'Address line 2'.tr,
+  );
+
+  Widget _buildPhoneField() => _buildTextField(
+    controller: controller.phoneController,
+    hintText: 'Phone number'.tr,
   );
 
   Widget _buildTextField({
@@ -142,17 +160,27 @@ class ShippingAddressEditPage extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          16.horizontalSpace,
+          // 显示国家旗帜（如果有选中的国家）
+          Obx(() {
+            if (this.controller.selectedCountry.value != null) {
+              return Row(
+                children: [
+                  _buildCountryFlag(this.controller.selectedCountry.value!.iso2),
+                  12.horizontalSpace,
+                ],
+              );
+            }
+            return const SizedBox.shrink();
+          }),
           Expanded(
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16.w),
-              child: Text(
-                controller.text.isEmpty ? hintText : controller.text,
-                style: TextStyle(
-                  fontSize: 16.sp,
-                  color: controller.text.isEmpty ? toColor('B8B8B8') : toColor('1A1A1A'),
-                ),
+            child: Obx(() => Text(
+              this.controller.countryDisplayText.value.isEmpty ? hintText : this.controller.countryDisplayText.value,
+              style: TextStyle(
+                fontSize: 16.sp,
+                color: this.controller.countryDisplayText.value.isEmpty ? toColor('B8B8B8') : toColor('1A1A1A'),
               ),
-            ),
+            )),
           ),
           Padding(
             padding: EdgeInsets.only(right: 16.w),
@@ -214,58 +242,119 @@ class ShippingAddressEditPage extends StatelessWidget {
   );
 
   void _showCountryPicker() {
-    // 示例国家列表
-    final countries = [
-      'United States',
-      'Canada',
-      'Mexico',
-      'Spain',
-      'France',
-      'Germany',
-      'Italy',
-      'United Kingdom',
-    ];
+    final countries = controller.getCountryList();
+    if (countries.isEmpty) return;
 
     showModalBottomSheet(
       context: Get.context!,
+      backgroundColor: Colors.transparent,
       builder: (context) => Container(
-        height: 300.h,
-        padding: EdgeInsets.all(20.w),
+        width: 1.sw,
+        height: 0.6.sh,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(15.r),
+            topRight: Radius.circular(15.r),
+          ),
+        ),
+        padding: EdgeInsets.symmetric(horizontal: 15.w, vertical: 20.h),
         child: Column(
           children: [
-            Text(
-              'Country'.tr,
-              style: TextStyle(
-                fontSize: 18.sp,
-                fontWeight: FontWeight.w600,
-                color: toColor('1A1A1A'),
-              ),
-            ),
+            _buildCountryDialogHeader(),
             20.verticalSpace,
-            Expanded(
-              child: ListView.builder(
-                itemCount: countries.length,
-                itemBuilder: (context, index) {
-                  final country = countries[index];
-                  return ListTile(
-                    title: Text(
-                      country,
-                      style: TextStyle(
-                        fontSize: 16.sp,
-                        color: toColor('1A1A1A'),
-                      ),
-                    ),
-                    onTap: () {
-                      controller.selectCountry(country);
-                      Navigator.pop(context);
-                    },
-                  );
-                },
-              ),
-            ),
+            Expanded(child: _buildCountryDialogList(countries)),
           ],
         ),
       ),
     );
   }
+
+  Widget _buildCountryDialogHeader() => Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            'SELECT COUNTRY'.tr,
+            style: TextStyle(
+              color: toColor('#3D3D3D'),
+              fontSize: 15.sp,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          InkWell(
+            onTap: () => Navigator.pop(Get.context!),
+            child: Text(
+              'CANCEL'.tr,
+              style: TextStyle(
+                color: toColor('#767676'),
+                fontSize: 14.sp,
+              ),
+            ),
+          ),
+        ],
+      );
+
+  Widget _buildCountryDialogList(List<Country> countries) => ListView.separated(
+        itemCount: countries.length,
+        separatorBuilder: (context, index) => Divider(
+          color: toColor("EEEEEE"),
+          height: 1.h,
+        ).marginSymmetric(vertical: 10.h),
+        itemBuilder: (context, index) {
+          final country = countries[index];
+          return _buildCountryDialogItem(country);
+        },
+      );
+
+  Widget _buildCountryDialogItem(Country country) => InkWell(
+        onTap: () {
+          controller.selectCountry(country);
+          Navigator.pop(Get.context!);
+        },
+        child: Row(
+          children: [
+            _buildCountryFlag(country.iso2),
+            12.horizontalSpace,
+            Expanded(
+              child: Text(
+                country.displayName.isEmpty ? country.name : country.displayName,
+                style: TextStyle(
+                  color: toColor('#1A1A1A'),
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.normal,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+
+  Widget _buildCountryFlag(String iso2) => Container(
+        width: 24.w,
+        height: 16.h,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(2.r),
+          border: Border.all(
+            color: toColor('E0E0E0'),
+            width: 0.5,
+          ),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(2.r),
+          child: SvgPicture.asset(
+            'assets/images/countries/${iso2.toLowerCase()}.svg',
+            width: 24.w,
+            height: 16.h,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) => Container(
+              color: toColor('F5F5F5'),
+              child: Icon(
+                Icons.flag,
+                size: 12.sp,
+                color: toColor('CCCCCC'),
+              ),
+            ),
+          ),
+        ),
+      );
 } 

@@ -47,6 +47,8 @@ dependencies:
   flutter_svg: ^2.1.0
   cached_network_image: ^3.4.1
   badges: ^3.1.2
+  algolia_helper_flutter: ^1.2.1
+  webview_flutter: ^4.13.0
 
   catcher_2:
     path: plugins/catcher_2
@@ -75,6 +77,7 @@ flutter:
     - assets/images/
     - assets/images/main/
     - assets/images/profile/
+    - assets/images/countries/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

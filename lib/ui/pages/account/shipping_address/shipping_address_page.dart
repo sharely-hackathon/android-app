@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
+import 'package:sharely/widgets/custom_loading_widget.dart';
 import '../../../../base/base_scaffold.dart';
+import '../../../../models/address_model.dart';
 import '../../../../utils/color_utils.dart';
 import 'shipping_address_controller.dart';
 
@@ -25,7 +27,9 @@ class ShippingAddressPage extends StatelessWidget {
   Widget _buildContent() => Container(
     color: Colors.white,
     padding: EdgeInsets.all(16.w),
-    child: controller.addressList.isEmpty
+    child: controller.isDataLoad.value
+        ? Container()
+        : controller.addressList.isEmpty
         ? _buildEmptyState()
         : _buildAddressList(),
   );
@@ -46,7 +50,7 @@ class ShippingAddressPage extends StatelessWidget {
     },
   );
 
-  Widget _buildAddressCard(ShippingAddressModel address) => Container(
+  Widget _buildAddressCard(Address address) => Container(
     padding: EdgeInsets.all(20.w),
     decoration: BoxDecoration(
       color: Colors.white,
@@ -57,25 +61,47 @@ class ShippingAddressPage extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          address.name,
+          '${address.firstName} ${address.lastName}',
           style: TextStyle(
             fontSize: 16.sp,
             fontWeight: FontWeight.w600,
             color: toColor('1A1A1A'),
           ),
         ),
+        if (address.company.isNotEmpty) ...[
+          4.verticalSpace,
+          Text(
+            address.company,
+            style: TextStyle(
+              fontSize: 14.sp,
+              fontWeight: FontWeight.w400,
+              color: toColor('79716B'),
+            ),
+          ),
+        ],
         12.verticalSpace,
         Text(
-          address.address,
+          address.address1,
           style: TextStyle(
             fontSize: 14.sp,
             fontWeight: FontWeight.w400,
             color: toColor('79716B'),
           ),
         ),
+        if (address.address2.isNotEmpty) ...[
+          4.verticalSpace,
+          Text(
+            address.address2,
+            style: TextStyle(
+              fontSize: 14.sp,
+              fontWeight: FontWeight.w400,
+              color: toColor('79716B'),
+            ),
+          ),
+        ],
         4.verticalSpace,
         Text(
-          address.city,
+          '${address.city}, ${address.province} ${address.postalCode}',
           style: TextStyle(
             fontSize: 14.sp,
             fontWeight: FontWeight.w400,

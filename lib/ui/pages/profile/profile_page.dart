@@ -7,7 +7,6 @@ import 'package:sharely/utils/assets_utils.dart';
 
 import '../../../utils/color_utils.dart';
 import '../../../utils/network_image_util.dart';
-import '../../../main.dart';
 import 'profile_controller.dart';
 
 class ProfilePage extends StatelessWidget {
@@ -32,35 +31,42 @@ class ProfilePage extends StatelessWidget {
       margin: EdgeInsets.only(top: 20.h),
       child: Row(
         children: [
-          NetworkImageUtil.loadCircleImage(
-            testImg,
-            size: 40.r,
-            fit: BoxFit.cover,
+          Obx(
+            () => NetworkImageUtil.loadCircleImage(
+              "${controller.profileModel.value?.metadata?.avatar}",
+              size: 40.r,
+              fit: BoxFit.cover,
+            ),
           ),
           16.horizontalSpace,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  controller.userName.value,
-                  style: TextStyle(
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.w600,
-                    color: toColor('1A1A1A'),
+                Obx(
+                  () => Text(
+                    controller.profileModel.value?.lastName ?? '',
+                    style: TextStyle(
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.w600,
+                      color: toColor('1A1A1A'),
+                    ),
                   ),
                 ),
                 4.verticalSpace,
                 Row(
                   children: [
-                    Text(
-                      controller.userEmail.value,
-                      style: TextStyle(
-                        fontSize: 12.sp,
-                        color: toColor('6B7280'),
+                    Obx(
+                      () => Text(
+                        controller.profileModel.value?.email ?? '',
+                        style: TextStyle(
+                          fontSize: 12.sp,
+                          color: toColor('6B7280'),
+                        ),
                       ),
                     ),
-                    if (controller.isVerified.value) ...[
+                    if (controller.profileModel.value?.metadata?.verified ==
+                        true) ...[
                       8.horizontalSpace,
                       Container(
                         padding: EdgeInsets.symmetric(
@@ -90,8 +96,8 @@ class ProfilePage extends StatelessWidget {
             badges.Badge(
               showBadge: true,
               position: badges.BadgePosition.topEnd(top: 2.h, end: 1.w),
-              child: Icon(Icons.notifications_none_sharp, size: 24.r,),
-            )
+              child: Icon(Icons.notifications_none_sharp, size: 24.r),
+            ),
         ],
       ),
     ),
@@ -105,8 +111,14 @@ class ProfilePage extends StatelessWidget {
         onTap: controller.onAccountSettingsTap,
       ),
       _buildMenuItem(
+        icon: AssetsUtils.points_ic,
+        title: 'Points'.tr,
+        onTap: controller.onPointsTap,
+      ),
+      _buildMenuItem(
         icon: AssetsUtils.payment_ic,
         title: 'Payment'.tr,
+        rightTextDesc: AssetsUtils.payment_desc_ic,
         onTap: controller.onPaymentTap,
       ),
       _buildMenuItem(
@@ -118,6 +130,11 @@ class ProfilePage extends StatelessWidget {
         icon: AssetsUtils.follow_ic,
         title: 'Follow @sharely'.tr,
         onTap: controller.onFollowSharelyTap,
+      ),
+      _buildMenuItem(
+        icon: AssetsUtils.language_ic,
+        title: 'English'.tr,
+        onTap: controller.switchLanguage,
       ),
       _buildMenuItem(
         icon: AssetsUtils.logout_ic,
@@ -132,6 +149,7 @@ class ProfilePage extends StatelessWidget {
     required String icon,
     required String title,
     Color? titleColor,
+    String? rightTextDesc,
     required VoidCallback onTap,
   }) => InkWell(
     onTap: onTap,
@@ -142,16 +160,18 @@ class ProfilePage extends StatelessWidget {
         children: [
           SvgPicture.asset(icon, width: 24.w),
           16.horizontalSpace,
-          Expanded(
-            child: Text(
-              title,
-              style: TextStyle(
-                fontSize: 16.sp,
-                color: titleColor ?? toColor('374151'),
-                fontWeight: FontWeight.w500,
-              ),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 16.sp,
+              color: titleColor ?? toColor('374151'),
+              fontWeight: FontWeight.w500,
             ),
           ),
+          if (rightTextDesc != null) ...[
+            6.horizontalSpace,
+            SvgPicture.asset(rightTextDesc, height: 12.h),
+          ],
         ],
       ),
     ),

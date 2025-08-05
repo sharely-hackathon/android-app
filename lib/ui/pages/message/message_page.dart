@@ -19,7 +19,7 @@ class MessagePage extends StatelessWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: Text(
-          'Messages',
+          'Messages'.tr,
           style: TextStyle(
             fontSize: 20.sp,
             fontWeight: FontWeight.w600,

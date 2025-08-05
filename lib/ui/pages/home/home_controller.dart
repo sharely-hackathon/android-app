@@ -1,85 +1,25 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
+import '../../../apis/product_api.dart';
 import '../../../base/base_controller.dart';
-import '../../../main.dart';
+import '../../../controller/app_controller.dart';
+import '../../../models/product_model.dart';
+import '../../../models/region_model.dart';
 import '../../../utils/toast_utils.dart';
 import '../../dialog/home_filter/home_filter_dialog.dart';
+import '../../dialog/country/switch_country_dialog.dart';
 import '../product_detail/product_detail_page.dart';
 
-class Product {
-  final String id;
-  final String name;
-  final String image;
-  final double price;
-  final double originalPrice;
-  final double rating;
-  final String earnPercentage;
-
-  Product({
-    required this.id,
-    required this.name,
-    required this.image,
-    required this.price,
-    required this.originalPrice,
-    required this.rating,
-    required this.earnPercentage,
-  });
-}
-
 class HomeController extends BaseController {
-  final products = <Product>[].obs;
-  final isLoading = false.obs;
+  static HomeController get find => Get.isRegistered<HomeController>()
+      ? Get.find<HomeController>()
+      : Get.put(HomeController());
 
-  @override
-  void onInit() {
-    super.onInit();
-    _initProducts();
-  }
-
-  void _initProducts() {
-    products.value = [
-      Product(
-        id: '1',
-        name: 'Daily Routine: Natural Finish Full Face Kit (4 PC)',
-        image: testImg,
-        price: 27.50,
-        originalPrice: 30.25,
-        rating: 4.52,
-        earnPercentage: '8%',
-      ),
-      Product(
-        id: '2',
-        name: 'Jelly Balm Hydrating Lip Color...',
-        image: testImg,
-        price: 27.50,
-        originalPrice: 30.25,
-        rating: 4.52,
-        earnPercentage: '8%',
-      ),
-      Product(
-        id: '3',
-        name: 'Spackle Skin Perfecting Primer',
-        image: testImg,
-        price: 27.50,
-        originalPrice: 30.25,
-        rating: 4.52,
-        earnPercentage: '8%',
-      ),
-      Product(
-        id: '4',
-        name: 'Daily Routine: Natural Finish Full Face Kit (4 PC)',
-        image: testImg,
-        price: 27.50,
-        originalPrice: 30.25,
-        rating: 4.52,
-        earnPercentage: '8%',
-      ),
-    ];
-  }
+  final products = Rxn<ProductModel>();
+  final selectedCountry = Rxn<Country>();
 
   void onProductTap(Product product) {
-    Get.to(() => ProductDetailPage());
+    Get.to(() => ProductDetailPage(), arguments: product.id);
   }
 
   // 显示筛选弹窗
@@ -91,7 +31,41 @@ class HomeController extends BaseController {
     );
   }
 
+  // 显示国家选择弹窗
+  void showCountryDialog() {
+    List<Country> allCountries = getUniqueCountries();
+    if (allCountries.isEmpty) return;
+    
+    showCustom(
+      SwitchCountryDialog(
+        countries: allCountries,
+        selectedCountry: selectedCountry.value,
+        onCountrySelected: (Country country) {
+          selectedCountry.value = country;
+        },
+      ),
+      alignment: Alignment.bottomCenter,
+      clickMaskDismiss: true,
+    );
+  }
+
+  // 获取所有区域中的去重国家列表
+  List<Country> getUniqueCountries() {
+    return AppController.find.getCountryList();
+  }
+
+  // 设置默认选中的国家（第一个国家）
+  void setDefaultSelectedCountry() {
+    List<Country> countries = getUniqueCountries();
+    if (countries.isNotEmpty && selectedCountry.value == null) {
+      selectedCountry.value = countries.first;
+    }
+  }
+
   @override
   Future<void> fetchData() async {
+    products.value = await ProductApi.getProductList();
+    await AppController.find.getRegionData();
+    setDefaultSelectedCountry();
   }
 } 

@@ -1,24 +1,27 @@
 import 'package:get/get.dart';
 import 'package:sharely/ui/pages/account/shipping_address/shipping_address_page.dart';
+import '../profile/profile_controller.dart';
+import '../webview/webview_page.dart';
 import 'email/email_page.dart';
 
 import '../../../base/base_controller.dart';
 
 class AccountController extends BaseController {
   // 用户基本信息
-  final userEmail = 'olga.d.harrison@gmail.com'.obs;
-  final userMobile = '+1 2385827583'.obs;
+  final userEmail = ''.obs;
+  final userMobile = ''.obs;
   final userAvatar = ''.obs;
   
   // 社交媒体信息
-  final xAccount = '@olga_harrison'.obs;
-  final discordAccount = '@olga_harrison'.obs;
-  final telegramAccount = '@olga_harrison'.obs;
+  final xAccount = ''.obs;
+  final discordAccount = ''.obs;
+  final telegramAccount = ''.obs;
 
   @override
   Future<void> fetchData() async {
-    // 这里可以从API获取用户账户信息
-    // 目前使用固定数据
+    userEmail.value = ProfileController.find.profileModel.value!.email;
+    userMobile.value = ProfileController.find.profileModel.value!.phone;
+    userAvatar.value = ProfileController.find.profileModel.value!.metadata?.avatar ?? '';
   }
 
   // 编辑邮箱
@@ -48,6 +51,10 @@ class AccountController extends BaseController {
   // 编辑X账号
   void editXAccount() {
     // 实现编辑X账号功能
+    Get.to(() => WebViewPage(
+      title: ''.tr,
+      url: "https://x.com/sharely_love",
+    ));
   }
 
   // 编辑Discord账号
@@ -58,5 +65,9 @@ class AccountController extends BaseController {
   // 编辑Telegram账号
   void editTelegramAccount() {
     // 实现编辑Telegram账号功能
+    Get.to(() => WebViewPage(
+      title: ''.tr,
+      url: "https://t.me/+cAQoP8m6xM81ODMx",
+    ));
   }
 } 

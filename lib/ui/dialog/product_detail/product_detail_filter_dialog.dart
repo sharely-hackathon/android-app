@@ -7,27 +7,22 @@ import 'package:sharely/utils/toast_utils.dart';
 class ProductDetailFilterDialog extends StatelessWidget {
   final String currentSizeValue;
   final String currentColorValue;
+  final List<String> sizeOptions;
+  final List<String> colorOptions;
+  final Map<String, String> colorOptionsMetadata;
   final Function(String, String) onSelected; // 修改为同时返回size和color
 
   ProductDetailFilterDialog({
     super.key,
     required this.currentSizeValue,
     required this.currentColorValue,
+    required this.sizeOptions,
+    required this.colorOptions,
+    required this.colorOptionsMetadata,
     required this.onSelected,
   });
 
-  // 尺寸选项
-  final sizeOptions = ['XS', 'SM', 'LG', 'XL'];
-  
-  // 颜色选项
-  final colorOptions = [
-    {'name': 'Orange', 'color': 'FF8C42'},
-    {'name': 'Blue', 'color': '4A90E2'},
-    {'name': 'Green', 'color': '7ED321'},
-    {'name': 'Red', 'color': 'D0021B'},
-    {'name': 'Purple', 'color': '9013FE'},
-    {'name': 'Black', 'color': '000000'},
-  ];
+
 
   final selectedSizeValue = ''.obs;
   final selectedColorValue = ''.obs;
@@ -53,10 +48,14 @@ class ProductDetailFilterDialog extends StatelessWidget {
         children: [
           _buildFilterHeader(),
           30.verticalSpace,
-          _buildSizeSection(),
-          30.verticalSpace,
-          _buildColorSection(),
-          30.verticalSpace,
+          if (sizeOptions.isNotEmpty) ...[
+            _buildSizeSection(),
+            30.verticalSpace,
+          ],
+          if (colorOptions.isNotEmpty) ...[
+            _buildColorSection(),
+            30.verticalSpace,
+          ],
           _buildConfirmButton(),
         ],
       ),
@@ -171,24 +170,24 @@ class ProductDetailFilterDialog extends StatelessWidget {
       crossAxisCount: 3,
       mainAxisSpacing: 12.h,
       crossAxisSpacing: 12.w,
-      childAspectRatio: 2.0,
+      childAspectRatio: 100 / 36,
     ),
     itemCount: colorOptions.length,
     itemBuilder: (context, index) => _buildColorItem(colorOptions[index]),
   );
 
-  Widget _buildColorItem(Map<String, String> colorData) => Obx(
+  Widget _buildColorItem(String colorName) => Obx(
     () => InkWell(
-      onTap: () => selectedColorValue.value = colorData['name']!,
+      onTap: () => selectedColorValue.value = colorName,
       child: Container(
-        height: 48.h,
+        height: 36.h,
         decoration: BoxDecoration(
-          color: selectedColorValue.value == colorData['name'] 
-              ? Colors.black 
+          color: selectedColorValue.value == colorName 
+              ? Colors.black
               : Colors.transparent,
           border: Border.all(
-            color: selectedColorValue.value == colorData['name'] 
-                ? Colors.black 
+            color: selectedColorValue.value == colorName 
+                ? Colors.black
                 : toColor('#E5E5E5'),
             width: 1.w,
           ),
@@ -202,17 +201,19 @@ class ProductDetailFilterDialog extends StatelessWidget {
                 width: 16.w,
                 height: 16.w,
                 decoration: BoxDecoration(
-                  color: toColor(colorData['color']!),
+                  color: colorOptionsMetadata[colorName] != null 
+                      ? Color(int.parse(colorOptionsMetadata[colorName]!.replaceFirst('#', ''), radix: 16) + 0xFF000000)
+                      : toColor('FF8C42'),
                   shape: BoxShape.circle,
                 ),
               ),
               6.horizontalSpace,
               Text(
-                colorData['name']!,
+                colorName,
                 style: TextStyle(
                   fontSize: 12.sp,
                   fontWeight: FontWeight.w500,
-                  color: selectedColorValue.value == colorData['name'] 
+                  color: selectedColorValue.value == colorName 
                       ? Colors.white 
                       : toColor('#292524'),
                 ),

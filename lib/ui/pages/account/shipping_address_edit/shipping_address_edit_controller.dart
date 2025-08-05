@@ -1,21 +1,31 @@
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
 import '../../../../base/base_controller.dart';
+import '../../../../controller/app_controller.dart';
+import '../../../../models/address_model.dart';
+import '../../../../models/region_model.dart';
+import '../../../../apis/profile_api.dart';
+import '../../../../utils/toast_utils.dart';
+import '../../../../dio/http_interceptor.dart';
 import '../shipping_address/shipping_address_controller.dart';
 
 class ShippingAddressEditController extends BaseController {
   // 表单控制器
+  final addressNameController = TextEditingController();
   final firstNameController = TextEditingController();
   final lastNameController = TextEditingController();
+  final companyController = TextEditingController();
   final countryController = TextEditingController();
   final stateController = TextEditingController();
   final cityController = TextEditingController();
   final postalCodeController = TextEditingController();
   final addressLine1Controller = TextEditingController();
   final addressLine2Controller = TextEditingController();
+  final phoneController = TextEditingController();
 
   // 响应式变量
-  final selectedCountry = ''.obs;
+  final selectedCountry = Rxn<Country>();
+  final countryDisplayText = ''.obs;
   final isEditMode = false.obs;
   
   // 要编辑的地址ID
@@ -26,85 +36,142 @@ class ShippingAddressEditController extends BaseController {
     super.onInit();
     // 检查是否是编辑模式
     final arguments = Get.arguments;
-    if (arguments != null && arguments is ShippingAddressModel) {
+    if (arguments != null && arguments is Address) {
       isEditMode.value = true;
       editingAddressId = arguments.id;
-      _loadAddressData(arguments);
     }
+    
+    // 加载区域数据
+    fetchData();
   }
 
   @override
   void onClose() {
+    addressNameController.dispose();
     firstNameController.dispose();
     lastNameController.dispose();
+    companyController.dispose();
     countryController.dispose();
     stateController.dispose();
     cityController.dispose();
     postalCodeController.dispose();
     addressLine1Controller.dispose();
     addressLine2Controller.dispose();
+    phoneController.dispose();
     super.onClose();
   }
 
   @override
   Future<void> fetchData() async {
-    // 这里可以从API获取国家列表等数据
+    // 使用AppController的缓存数据，如果没有缓存才调用API
+    await AppController.find.getRegionData();
+    
+    // 如果是编辑模式，在数据加载完成后设置地址信息
+    final arguments = Get.arguments;
+    if (arguments != null && arguments is Address && isEditMode.value) {
+      _loadAddressData(arguments);
+    }
   }
 
   // 加载地址数据（编辑模式）
-  void _loadAddressData(ShippingAddressModel address) {
-    final nameParts = address.name.split(' ');
-    firstNameController.text = nameParts.isNotEmpty ? nameParts.first : '';
-    lastNameController.text = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
+  void _loadAddressData(Address address) {
+    addressNameController.text = ''; // 根据需要设置默认名称
+    firstNameController.text = address.firstName;
+    lastNameController.text = address.lastName;
+    companyController.text = address.company;
+    addressLine1Controller.text = address.address1;
+    addressLine2Controller.text = address.address2;
+    cityController.text = address.city;
+    stateController.text = address.province;
+    postalCodeController.text = address.postalCode;
+    countryController.text = address.countryCode;
+    phoneController.text = address.phone;
     
-    addressLine1Controller.text = address.address;
-    cityController.text = address.city.split(',').first.trim();
-    
-    // 解析城市信息，假设格式为 "City, State, Country PostalCode"
-    final cityParts = address.city.split(',');
-    if (cityParts.length >= 2) {
-      stateController.text = cityParts[1].trim();
-    }
-    if (cityParts.length >= 3) {
-      final lastPart = cityParts[2].trim().split(' ');
-      countryController.text = lastPart.isNotEmpty ? lastPart.first : '';
-      if (lastPart.length > 1) {
-        postalCodeController.text = lastPart.sublist(1).join(' ');
-      }
+    // 根据国家代码查找对应的Country对象
+    final countries = getCountryList();
+    final country = countries.firstWhereOrNull((c) => c.iso2 == address.countryCode || c.name == address.countryCode);
+    if (country != null) {
+      selectedCountry.value = country;
+      final displayText = country.displayName.isEmpty ? country.name : country.displayName;
+      countryController.text = displayText;
+      countryDisplayText.value = displayText;
+    } else {
+      selectedCountry.value = null;
+      countryDisplayText.value = address.countryCode;
     }
   }
 
   // 选择国家
-  void selectCountry(String country) {
+  void selectCountry(Country country) {
     selectedCountry.value = country;
-    countryController.text = country;
+    final displayText = country.displayName.isEmpty ? country.name : country.displayName;
+    countryController.text = displayText;
+    countryDisplayText.value = displayText;
+  }
+
+  // 获取所有区域中的去重国家列表
+  List<Country> getCountryList() {
+    return AppController.find.getCountryList();
   }
 
   // 保存地址
-  void saveAddress() {
-    if (_validateForm()) {
-      final newAddress = ShippingAddressModel(
-        id: editingAddressId ?? DateTime.now().millisecondsSinceEpoch.toString(),
-        name: '${firstNameController.text} ${lastNameController.text}',
-        address: addressLine1Controller.text,
-        city: '${cityController.text}, ${stateController.text}, ${countryController.text} ${postalCodeController.text}',
-        phone: '+1 04306537', // 这里可以添加电话号码字段
-      );
+  Future<void> saveAddress() async {
+    if (!_validateForm()) return;
 
-      // 更新地址列表
-      final shippingController = Get.find<ShippingAddressController>();
-      if (isEditMode.value) {
-        // 编辑模式：更新现有地址
-        final index = shippingController.addressList.indexWhere((address) => address.id == editingAddressId);
-        if (index != -1) {
-          shippingController.addressList[index] = newAddress;
-        }
+    // 构建API请求参数
+    final Map<String, dynamic> addressData = {
+      "address_name": addressNameController.text.isNotEmpty ? addressNameController.text : "My Home",
+      "first_name": firstNameController.text,
+      "last_name": lastNameController.text,
+      "company": companyController.text,
+      "address_1": addressLine1Controller.text,
+      "address_2": addressLine2Controller.text,
+      "city": cityController.text,
+      "postal_code": postalCodeController.text,
+      "country_code": selectedCountry.value?.iso2 ?? countryController.text,
+      "phone": phoneController.text,
+      "province": stateController.text,
+      "is_default_billing": false,
+      "is_default_shipping": false,
+    };
+
+    try {
+      bool result;
+      
+      if (isEditMode.value && editingAddressId != null) {
+        // 更新现有地址
+        result = await ProfileApi.updateUserAddress(
+          addressId: editingAddressId!,
+          map: addressData,
+          isShowLoading: true,
+          isShowErrMsg: true,
+        );
       } else {
-        // 新增模式：添加新地址
-        shippingController.addressList.add(newAddress);
+        // 新增地址
+        result = await ProfileApi.addUserAddress(
+          map: addressData,
+          isShowLoading: true,
+          isShowErrMsg: true,
+        );
       }
 
-      Get.back();
+      if (result) {
+        // API调用成功
+        showSuccess(isEditMode.value ? 'Address updated successfully'.tr : 'Address added successfully'.tr);
+        
+        // 刷新地址列表
+        final shippingController = Get.find<ShippingAddressController>();
+        await shippingController.fetchData();
+        
+        Get.back(result: true);
+      } else {
+        // API调用失败
+        showError(isEditMode.value ? 'Failed to update address'.tr : 'Failed to add address'.tr);
+      }
+    } catch (e) {
+      // 异常处理
+      flog('保存地址失败: $e');
+      showError(isEditMode.value ? 'Failed to update address'.tr : 'Failed to add address'.tr);
     }
   }
 
@@ -116,19 +183,32 @@ class ShippingAddressEditController extends BaseController {
   // 验证表单
   bool _validateForm() {
     if (firstNameController.text.isEmpty) {
-      Get.snackbar('Error', 'Please enter first name');
+      showError('Please enter first name'.tr);
       return false;
     }
     if (lastNameController.text.isEmpty) {
-      Get.snackbar('Error', 'Please enter last name');
+      showError('Please enter last name'.tr);
       return false;
     }
     if (addressLine1Controller.text.isEmpty) {
-      Get.snackbar('Error', 'Please enter address');
+      showError('Please enter address'.tr);
       return false;
     }
     if (cityController.text.isEmpty) {
-      Get.snackbar('Error', 'Please enter city');
+      showError('Please enter city'.tr);
+      return false;
+    }
+    if (stateController.text.isEmpty) {
+      showError('Please enter province/state'.tr);
+      return false;
+    }
+    if (postalCodeController.text.isEmpty) {
+      showError('Please enter postal code'.tr);
+      return false;
+    }
+
+    if (selectedCountry.value == null && countryController.text.isEmpty) {
+      showError('Please select country'.tr);
       return false;
     }
     return true;

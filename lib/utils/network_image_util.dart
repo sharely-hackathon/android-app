@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'dart:io';
+import 'dart:developer';
 
 class NetworkImageUtil {
   /// 加载网络图片或本地图片
@@ -17,19 +18,30 @@ class NetworkImageUtil {
     BoxFit fit = BoxFit.cover,
     Widget? placeholder,
     Widget? errorWidget,
+    double? radius,
   }) {
+    // 添加日志以便调试
+    log('正在加载图片: $imageUrl');
+    
     // 网络图片
     return CachedNetworkImage(
       imageUrl: imageUrl,
       width: width,
       height: height,
       fit: fit,
-      placeholder: (context, url) =>
-          placeholder ?? const Center(child: CircularProgressIndicator()),
-      errorWidget: (context, url, error) =>
-          errorWidget ?? _buildErrorWidget(width, height),
+      placeholder: (context, url) {
+        log('图片加载中: $url');
+        return placeholder ?? const Center(child: CircularProgressIndicator());
+      },
+      errorWidget: (context, url, error) {
+        log('图片加载失败: $url, 错误: $error');
+        return errorWidget ?? _buildErrorWidget(width, height, radius: radius);
+      },
       fadeInDuration: const Duration(milliseconds: 300),
       fadeOutDuration: const Duration(milliseconds: 300),
+      httpHeaders: const {
+        'User-Agent': 'Mozilla/5.0 (Android 10; Mobile; rv:81.0) Gecko/81.0 Firefox/81.0',
+      },
     );
   }
 
@@ -72,11 +84,14 @@ class NetworkImageUtil {
   }
 
   /// 构建错误显示组件
-  static Widget _buildErrorWidget(double? width, double? height) {
+  static Widget _buildErrorWidget(double? width, double? height, {double? radius}) {
     return Container(
       height: height,
       width: width,
-      color: Colors.grey[300],
+      decoration: BoxDecoration(
+        color: Colors.grey[300],
+        borderRadius: radius != null ? BorderRadius.circular(radius) : null,
+      ),
       child: const Icon(Icons.error, color: Colors.red),
     );
   }
@@ -124,13 +139,24 @@ class NetworkImageUtil {
   }) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
-      child: loadImage(
-        imageUrl,
+      child: CachedNetworkImage(
+        imageUrl: imageUrl,
         width: width,
         height: height,
         fit: fit,
-        placeholder: placeholder,
-        errorWidget: errorWidget,
+        placeholder: (context, url) {
+          log('图片加载中: $url');
+          return placeholder ?? const Center(child: CircularProgressIndicator());
+        },
+        errorWidget: (context, url, error) {
+          log('图片加载失败: $url, 错误: $error');
+          return errorWidget ?? _buildErrorWidget(width, height, radius: radius);
+        },
+        fadeInDuration: const Duration(milliseconds: 300),
+        fadeOutDuration: const Duration(milliseconds: 300),
+        httpHeaders: const {
+          'User-Agent': 'Mozilla/5.0 (Android 10; Mobile; rv:81.0) Gecko/81.0 Firefox/81.0',
+        },
       ),
     );
   }
@@ -162,6 +188,7 @@ class NetworkImageUtil {
         fit: fit,
         placeholder: placeholder,
         errorWidget: errorWidget,
+        radius: [topLeft, topRight, bottomLeft, bottomRight].reduce((a, b) => a < b ? a : b),
       ),
     );
   }

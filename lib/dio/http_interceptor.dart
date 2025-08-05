@@ -1,15 +1,24 @@
 import 'dart:developer' as f;
 import 'package:dio/dio.dart';
 
-void flog(v, [String? name]) => f.log(v.toString(), name: name ?? 'flog');
+import '../utils/sp_utils.dart';
 
-// 测试用的
-String appId = "108";
+void flog(v, [String? name]) => f.log(v.toString(), name: name ?? 'flog');
 
 class HttpInterceptor extends Interceptor {
 
+  // 添加密钥常量
+  static const String _publishableKey = 'pk_e15ee2e35fa70aa35033d31c7650a3c105d6c86547356586b6ab85a21ecca3ef';
+
   @override
   Future<void> onRequest(RequestOptions options, RequestInterceptorHandler handler) async {
+    options.headers['x-publishable-api-key'] = _publishableKey;
+
+    String? token = SPUtils.get("token") as String?;
+    if (token != null) {
+      options.headers['Authorization'] = 'Bearer $token';
+    }
+
     StringBuffer sb = StringBuffer();
     sb.writeln('********* 网络请求 *********');
     sb.writeln('uri: ${options.uri}');

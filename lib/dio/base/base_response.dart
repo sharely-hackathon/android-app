@@ -15,14 +15,14 @@ class BaseResponse {
         code: json[codeCon] ?? -1,
         // data值需要经过工厂转换为我们传进来的类型
         data: json[dataCon] ?? json.toString(),
-        message: json[msgCon] ?? '未知异常',
+        message: json[msgCon] ?? 'Unknown Exception',
       );
     } catch (e) {
       return BaseResponse(
         code: -1,
         // data值需要经过工厂转换为我们传进来的类型
         data: json.toString(),
-        message: '未知异常',
+        message: 'Unknown Exception',
       );
     }
   }

@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
-import 'package:sharely/ui/pages/message/message_page.dart';
 import 'package:sharely/ui/pages/rewards/rewards_page.dart';
 
 import '../../utils/assets_utils.dart';
 import '../../utils/color_utils.dart';
 import 'home/home_page.dart';
+import 'order_list/order_list_page.dart';
 import 'profile/profile_page.dart';
 import 'main_controller.dart';
 
@@ -27,7 +27,7 @@ class MainPage extends StatelessWidget {
           child: PageView(
             controller: controller.pageController,
             physics: const NeverScrollableScrollPhysics(),
-            children: [HomePage(), RewardsPage(), MessagePage(), ProfilePage()],
+            children: [HomePage(), RewardsPage(), OrderListPage(), ProfilePage()],
           ),
         ),
         _buildBottomNavigationBar(),

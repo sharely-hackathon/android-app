@@ -1,259 +1,150 @@
 import 'package:get/get.dart';
+import 'package:sharely/dio/dio_config.dart';
+import 'package:sharely/ui/pages/home/home_controller.dart';
+import '../../../apis/cart_api.dart';
 import '../../../base/base_controller.dart';
-import '../../../main.dart';
+import '../../../dio/http_interceptor.dart';
+import '../../../models/cart_model.dart';
+import '../../../utils/sp_utils.dart';
 import '../../../utils/toast_utils.dart';
-
-// 商品模型
-class CartProduct {
-  final String id;
-  final String name;
-  final String image;
-  final double price;
-  final double originalPrice;
-  final String color;
-  final String size;
-  final int quantity;
-
-  CartProduct({
-    required this.id,
-    required this.name,
-    required this.image,
-    required this.price,
-    required this.originalPrice,
-    required this.color,
-    required this.size,
-    required this.quantity,
-  });
-
-  CartProduct copyWith({
-    String? id,
-    String? name,
-    String? image,
-    double? price,
-    double? originalPrice,
-    String? color,
-    String? size,
-    int? quantity,
-  }) {
-    return CartProduct(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      image: image ?? this.image,
-      price: price ?? this.price,
-      originalPrice: originalPrice ?? this.originalPrice,
-      color: color ?? this.color,
-      size: size ?? this.size,
-      quantity: quantity ?? this.quantity,
-    );
-  }
-}
-
-// 商家模型
-class Merchant {
-  final String id;
-  final String name;
-  final String avatar;
-  final List<CartProduct> products;
-
-  Merchant({
-    required this.id,
-    required this.name,
-    required this.avatar,
-    required this.products,
-  });
-
-  Merchant copyWith({
-    String? id,
-    String? name,
-    String? avatar,
-    List<CartProduct>? products,
-  }) {
-    return Merchant(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      avatar: avatar ?? this.avatar,
-      products: products ?? this.products,
-    );
-  }
-}
+import '../webview/webview_page.dart';
 
 class CartController extends BaseController {
-  final merchants = <Merchant>[].obs;
-  final selectedProducts = <String>{}.obs; // 已选中的商品ID
-  final shippingFee = 5.00.obs;
+  final cartModel = Rxn<CartModel>();
+  final selectedItems = <String>{}.obs; // 已选中的商品项ID
+  final shippingFee = 0.0.obs;
 
   @override
   void onInit() {
     super.onInit();
-    _initCartData();
+    loadCartData();
   }
 
-  void _initCartData() {
-    merchants.value = [
-      Merchant(
-        id: '1',
-        name: 'Laura Geller',
-        avatar: testImg,
-        products: [
-          CartProduct(
-            id: '1',
-            name: 'Daily Routine: Natural Finish Full Face Kit (4 PC)',
-            image: testImg,
-            price: 27.50,
-            originalPrice: 30.25,
-            color: 'Orange',
-            size: 'xl',
-            quantity: 3,
-          ),
-          CartProduct(
-            id: '2',
-            name: 'Daily Routine: Natural Finish Full Face Kit (4 PC)',
-            image: testImg,
-            price: 27.50,
-            originalPrice: 30.25,
-            color: 'Orange',
-            size: 'xl',
-            quantity: 3,
-          ),
-        ],
-      ),
-      Merchant(
-        id: '2',
-        name: 'Laura Geller',
-        avatar: testImg,
-        products: [
-          CartProduct(
-            id: '3',
-            name: 'Daily Routine: Natural Finish Full Face Kit (4 PC)',
-            image: testImg,
-            price: 27.50,
-            originalPrice: 30.25,
-            color: 'Orange',
-            size: 'xl',
-            quantity: 3,
-          ),
-          CartProduct(
-            id: '4',
-            name: 'Daily Routine: Natural Finish Full Face Kit (4 PC)',
-            image: testImg,
-            price: 27.50,
-            originalPrice: 30.25,
-            color: 'Orange',
-            size: 'xl',
-            quantity: 3,
-          ),
-        ],
-      ),
-    ];
-    
-    // 默认全选商品
-    for (var merchant in merchants) {
-      for (var product in merchant.products) {
-        selectedProducts.add(product.id);
+  // 加载购物车数据
+  Future<void> loadCartData() async {
+    final cartId = SPUtils.get("cart_id") as String?;
+    if (cartId != null && cartId.isNotEmpty) {
+      final result = await CartApi.queryCartById(cartId: cartId);
+      if (result != null) {
+        cartModel.value = result;
+        shippingFee.value = result.cart?.shippingTotal.toDouble() ?? 0.0;
+        
+        // 默认全选所有商品
+        for (var item in result.cart?.items ?? []) {
+          selectedItems.add(item.id);
+        }
       }
     }
   }
 
   // 切换商品选中状态
-  void toggleProductSelection(String productId) {
-    if (selectedProducts.contains(productId)) {
-      selectedProducts.remove(productId);
+  void toggleItemSelection(String itemId) {
+    if (selectedItems.contains(itemId)) {
+      selectedItems.remove(itemId);
     } else {
-      selectedProducts.add(productId);
+      selectedItems.add(itemId);
     }
   }
 
-  // 切换商家全选
-  void toggleMerchantSelection(String merchantId) {
-    final merchant = merchants.firstWhere((m) => m.id == merchantId);
-    final allSelected = merchant.products.every((p) => selectedProducts.contains(p.id));
-    
+  // 全选/取消全选
+  void toggleSelectAll() {
+    final items = cartModel.value?.cart?.items ?? [];
+    if (items.isEmpty) return;
+
+    final allSelected = items.every((item) => selectedItems.contains(item.id));
+
     if (allSelected) {
       // 全部取消选中
-      for (var product in merchant.products) {
-        selectedProducts.remove(product.id);
-      }
+      selectedItems.clear();
     } else {
       // 全部选中
-      for (var product in merchant.products) {
-        selectedProducts.add(product.id);
+      selectedItems.clear();
+      for (var item in items) {
+        selectedItems.add(item.id);
       }
     }
   }
 
-  // 判断商家是否全选
-  bool isMerchantSelected(String merchantId) {
-    final merchant = merchants.firstWhere((m) => m.id == merchantId);
-    return merchant.products.every((p) => selectedProducts.contains(p.id));
+  // 判断是否全选
+  bool get isAllSelected {
+    final items = cartModel.value?.cart?.items ?? [];
+    if (items.isEmpty) return false;
+    return items.every((item) => selectedItems.contains(item.id));
+  }
+
+  // 更新商品数量的辅助方法
+  void _updateItemQuantity(String itemId, int newQuantity) {
+    final cartData = cartModel.value;
+    if (cartData?.cart?.items != null && newQuantity >= 1) {
+      final items = cartData!.cart!.items;
+      final itemIndex = items.indexWhere((item) => item.id == itemId);
+      
+      if (itemIndex != -1) {
+        // 直接修改quantity属性
+        items[itemIndex].quantity = newQuantity;
+        
+        // 触发响应式更新
+        cartModel.refresh();
+      }
+    }
   }
 
   // 增加商品数量
-  void increaseQuantity(String productId) {
-    for (int i = 0; i < merchants.length; i++) {
-      for (int j = 0; j < merchants[i].products.length; j++) {
-        if (merchants[i].products[j].id == productId) {
-          final updatedProduct = merchants[i].products[j].copyWith(
-            quantity: merchants[i].products[j].quantity + 1,
-          );
-          final updatedProducts = List<CartProduct>.from(merchants[i].products);
-          updatedProducts[j] = updatedProduct;
-          merchants[i] = merchants[i].copyWith(products: updatedProducts);
-          merchants.refresh();
-          return;
+  void increaseQuantity(String itemId) {
+    final cartData = cartModel.value;
+    if (cartData?.cart?.items != null) {
+      final items = cartData!.cart!.items;
+      try {
+        final itemIndex = items.indexWhere((item) => item.id == itemId);
+        if (itemIndex != -1) {
+          final item = items[itemIndex];
+          _updateItemQuantity(itemId, item.quantity.toInt() + 1);
         }
+      } catch (e) {
+        flog('增加商品数量失败: $e');
       }
     }
   }
 
   // 减少商品数量
-  void decreaseQuantity(String productId) {
-    for (int i = 0; i < merchants.length; i++) {
-      for (int j = 0; j < merchants[i].products.length; j++) {
-        if (merchants[i].products[j].id == productId) {
-          if (merchants[i].products[j].quantity > 1) {
-            final updatedProduct = merchants[i].products[j].copyWith(
-              quantity: merchants[i].products[j].quantity - 1,
-            );
-            final updatedProducts = List<CartProduct>.from(merchants[i].products);
-            updatedProducts[j] = updatedProduct;
-            merchants[i] = merchants[i].copyWith(products: updatedProducts);
-            merchants.refresh();
+  void decreaseQuantity(String itemId) {
+    final cartData = cartModel.value;
+    if (cartData?.cart?.items != null) {
+      final items = cartData!.cart!.items;
+      try {
+        final itemIndex = items.indexWhere((item) => item.id == itemId);
+        if (itemIndex != -1) {
+          final item = items[itemIndex];
+          final currentQuantity = item.quantity.toInt();
+          
+          // 数量最低为1，不能再减少
+          if (currentQuantity > 1) {
+            _updateItemQuantity(itemId, currentQuantity - 1);
           }
-          return;
         }
+      } catch (e) {
+        flog('减少商品数量失败: $e');
       }
     }
   }
 
   // 删除商品
-  void removeProduct(String productId) {
-    for (int i = 0; i < merchants.length; i++) {
-      final updatedProducts = merchants[i].products.where((p) => p.id != productId).toList();
-      if (updatedProducts.length != merchants[i].products.length) {
-        // 从选中列表中移除
-        selectedProducts.remove(productId);
-        
-        if (updatedProducts.isEmpty) {
-          // 如果商家没有商品了，删除整个商家
-          merchants.removeAt(i);
-        } else {
-          // 更新商家的商品列表
-          merchants[i] = merchants[i].copyWith(products: updatedProducts);
-        }
-        merchants.refresh();
-        return;
-      }
-    }
+  void removeItem(String itemId) {
+    // 这里需要调用API来删除购物车商品
+    // 暂时显示提示，后续可以实现具体的API调用
+    selectedItems.remove(itemId);
+    showToast('删除商品功能待实现');
   }
 
   // 计算选中商品的总价
   double get totalPrice {
-    double total = 0;
-    for (var merchant in merchants) {
-      for (var product in merchant.products) {
-        if (selectedProducts.contains(product.id)) {
-          total += product.price * product.quantity;
-        }
+    double total = 0.0;
+    final items = cartModel.value?.cart?.items ?? [];
+    
+    for (var item in items) {
+      if (selectedItems.contains(item.id)) {
+        // unitPrice直接使用，不需要除以100
+        total += item.unitPrice * item.quantity;
       }
     }
     return total;
@@ -262,17 +153,46 @@ class CartController extends BaseController {
   // 计算选中商品的总价（包含运费）
   double get totalPriceWithShipping => totalPrice + shippingFee.value;
 
+  // 获取购物车商品总数量
+  int get totalItemCount {
+    final items = cartModel.value?.cart?.items ?? [];
+    int total = 0;
+    for (var item in items) {
+      total += item.quantity.toInt();
+    }
+    return total;
+  }
+
+  // 获取选中商品数量
+  int get selectedItemCount => selectedItems.length;
+
   // 支付
   void payWithHelio() {
-    if (selectedProducts.isEmpty) {
-      showToast('请选择要购买的商品');
+    if (selectedItems.isEmpty) {
+      showToast('Please select the product you want to purchase'.tr);
       return;
     }
-    showToast('支付功能待实现');
+    
+    // 从SPUtils获取token和cartId
+    final token = SPUtils.get("token") as String?;
+    final cartId = SPUtils.get("cart_id") as String?;
+    
+    // 准备cookies
+    final cookies = <String, String?>{
+      '_medusa_jwt': token,
+      '_medusa_cart_id': cartId,
+    };
+    
+    // 跳转到支付页面
+    Get.to(() => WebViewPage(
+      title: 'Payment',
+      url: "https://sharely.dev/${HomeController.find.selectedCountry.value?.iso2}/checkout?step=address&_from=app",
+      cookies: cookies,
+    ));
   }
 
   @override
   Future<void> fetchData() async {
-    // 这里可以实现从API获取购物车数据
+    await loadCartData();
   }
-} 
+}

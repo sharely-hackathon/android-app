@@ -2,7 +2,10 @@ import 'package:flutter/material.dart' hide SearchController;
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
+import 'package:sharely/models/category_model.dart';
 import 'package:sharely/utils/network_image_util.dart';
+import '../../../main.dart';
+import '../../../models/product_model.dart';
 import '../../../utils/assets_utils.dart';
 import '../../../utils/color_utils.dart';
 import 'search_controller.dart';
@@ -14,19 +17,55 @@ class SearchPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: Colors.white,
-      child: Column(
-        children: [
-          _buildSearchBar(),
-          Expanded(
-            child: Obx(
-              () => controller.hasSearchResults.value
-                  ? _buildSearchResults()
-                  : _buildCategoryGrid(),
+    return InkWell(
+      onTap: () {
+        FocusScope.of(context).unfocus(); // 关闭键盘
+      },
+      child: Container(
+        color: Colors.white,
+        child: Column(
+          children: [
+            _buildSearchBar(),
+            Expanded(
+              child: Obx(
+                () {
+                  // 如果正在加载，显示空容器
+                  if (controller.isDataLoad.value) {
+                    return Container();
+                  }
+
+                  // 如果还没开始搜索，显示分类网格
+                  if (!controller.hasStartedSearch.value) {
+                    return _buildCategoryGrid();
+                  }
+
+                  // 如果输入框为空，显示分类网格
+                  if (controller.searchController.text.trim().isEmpty) {
+                    return _buildCategoryGrid();
+                  }
+
+                  // 如果有搜索错误，显示错误信息
+                  if (controller.searchError.value != null) {
+                    return _buildErrorWidget();
+                  }
+
+                  // 如果正在搜索，显示加载状态
+                  if (controller.isSearching.value) {
+                    return _buildLoadingWidget();
+                  }
+
+                  // 如果有搜索结果，显示搜索结果
+                  if (controller.searchProducts.isNotEmpty) {
+                    return _buildSearchResults();
+                  }
+
+                  // 如果搜索结果为空，显示无数据提示
+                  return _buildNoDataWidget();
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -52,6 +91,7 @@ class SearchPage extends StatelessWidget {
                 ],
               ),
               child: TextField(
+                controller: controller.searchController,
                 onChanged: controller.onSearchChanged,
                 textInputAction: TextInputAction.search,
                 decoration: InputDecoration(
@@ -168,7 +208,7 @@ class SearchPage extends StatelessWidget {
           crossAxisCount: 2,
           crossAxisSpacing: 10.w,
           mainAxisSpacing: 10.h,
-          childAspectRatio: 0.78,
+          childAspectRatio: 0.72,
         ),
         itemCount: controller.searchProducts.length,
         itemBuilder: (context, index) {
@@ -188,6 +228,81 @@ class SearchPage extends StatelessWidget {
     ),
   );
 
+  // 构建加载状态Widget
+  Widget _buildLoadingWidget() => Center(
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(toColor('FF6B6B')),
+        ),
+        16.verticalSpace,
+        Text(
+          'Searching...'.tr,
+          style: TextStyle(
+            fontSize: 16.sp,
+            color: toColor('666666'),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  // 构建无数据Widget
+  Widget _buildNoDataWidget() => Center(
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(
+          Icons.search_off,
+          size: 80.sp,
+          color: toColor('CCCCCC'),
+        ),
+        16.verticalSpace,
+        Text(
+          'No Data',
+          style: TextStyle(
+            fontSize: 18.sp,
+            color: toColor('666666'),
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        8.verticalSpace,
+        Text(
+          'No products found for your search',
+          style: TextStyle(
+            fontSize: 14.sp,
+            color: toColor('999999'),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  // 构建错误Widget
+  Widget _buildErrorWidget() => Center(
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(
+          Icons.error_outline,
+          size: 60.sp,
+          color: toColor('FF6B6B'),
+        ),
+        16.verticalSpace,
+        Text(
+          controller.searchError.value ?? 'Search Error',
+          style: TextStyle(
+            fontSize: 16.sp,
+            color: toColor('666666'),
+            fontWeight: FontWeight.w500,
+          ),
+          textAlign: TextAlign.center,
+        ).marginSymmetric(horizontal: 16.w),
+      ],
+    ),
+  );
+
   Widget _buildProductImage(Product product) => Stack(
     children: [
       Container(
@@ -196,7 +311,7 @@ class SearchPage extends StatelessWidget {
           borderRadius: BorderRadius.circular(16.r),
         ),
         child: NetworkImageUtil.loadRoundedImage(
-          product.image,
+          _getProductImage(product),
           height: 140.h,
           width: 1.sw,
           radius: 16.r,
@@ -218,7 +333,7 @@ class SearchPage extends StatelessWidget {
               SvgPicture.asset(AssetsUtils.alpha_ic, height: 12.h),
               4.horizontalSpace,
               Text(
-                'Earn ${product.earnPercentage}',
+                'Earn 5%', // 默认显示5%，可以后续从产品数据中获取
                 style: TextStyle(
                   fontSize: 10.sp,
                   color: Colors.white,
@@ -236,23 +351,23 @@ class SearchPage extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: Text(
-            product.name,
-            style: TextStyle(
-              fontSize: 14.sp,
-              color: toColor("#292524"),
-              fontWeight: FontWeight.w500,
-              height: 1.3,
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+        4.verticalSpace,
+        Text(
+          product.title,
+          style: TextStyle(
+            fontSize: 14.sp,
+            color: toColor("#292524"),
+            fontWeight: FontWeight.w500,
+            height: 1.3,
           ),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
         ),
+        4.verticalSpace,
         Row(
           children: [
             Text(
-              '\$${product.price.toStringAsFixed(2)}',
+              '\$${_getProductPrice(product)}',
               style: TextStyle(
                 fontSize: 16.sp,
                 color: toColor("FF6B6B"),
@@ -262,7 +377,7 @@ class SearchPage extends StatelessWidget {
             8.horizontalSpace,
             Expanded(
               child: Text(
-                product.originalPrice.toStringAsFixed(2),
+                '\$${_getOriginalPrice(product)}',
                 style: TextStyle(
                   fontSize: 12.sp,
                   color: toColor("999999"),
@@ -275,7 +390,7 @@ class SearchPage extends StatelessWidget {
                 Icon(Icons.star, color: toColor("#292524"), size: 14.sp),
                 2.horizontalSpace,
                 Text(
-                  product.rating.toString(),
+                  '4.5', // 默认评分，可以后续从产品数据中获取
                   style: TextStyle(
                     fontSize: 12.sp,
                     color: toColor("#292524"),
@@ -290,6 +405,42 @@ class SearchPage extends StatelessWidget {
     ),
   );
 
+  // 获取产品图片
+  String _getProductImage(Product product) {
+    // 优先使用images数组中的第一张图片
+    if (product.images.isNotEmpty) {
+      return product.images.first.url;
+    }
+    // 如果没有images，使用thumbnail
+    if (product.thumbnail.isNotEmpty) {
+      return product.thumbnail;
+    }
+    // 最后使用默认图片
+    return testImg;
+  }
+
+  // 获取产品价格
+  String _getProductPrice(Product product) {
+    // 优先使用variants中的计算价格
+    if (product.variants.isNotEmpty && 
+        product.variants.first.calculatedPrice != null) {
+      return (product.variants.first.calculatedPrice!.calculatedAmount / 100)
+          .toStringAsFixed(2);
+    }
+    return '0.00';
+  }
+
+  // 获取原价
+  String _getOriginalPrice(Product product) {
+    // 优先使用variants中的原始价格
+    if (product.variants.isNotEmpty && 
+        product.variants.first.calculatedPrice != null) {
+      return (product.variants.first.calculatedPrice!.originalAmount / 100)
+          .toStringAsFixed(2);
+    }
+    return '0.00';
+  }
+
   // 构建分类网格
   Widget _buildCategoryGrid() => Container(
     margin: EdgeInsets.symmetric(horizontal: 20.w),
@@ -301,9 +452,10 @@ class SearchPage extends StatelessWidget {
           mainAxisSpacing: 15.h,
           childAspectRatio: 1.3,
         ),
-        itemCount: controller.categories.length,
+        itemCount: controller.categories.value?.productCategories.length,
         itemBuilder: (context, index) {
-          final category = controller.categories[index];
+          final category =
+              controller.categories.value?.productCategories[index];
           return _buildCategoryItem(category, controller);
         },
       ),
@@ -312,13 +464,13 @@ class SearchPage extends StatelessWidget {
 
   // 构建单个分类项
   Widget _buildCategoryItem(
-    CategoryItem category,
+    ProductCategory? category,
     SearchController controller,
   ) => InkWell(
     onTap: () => controller.onCategoryTap(category),
     child: Container(
       decoration: BoxDecoration(
-        color: toColor(category.color),
+        color: Colors.black.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(16.r),
         boxShadow: [
           BoxShadow(
@@ -333,7 +485,7 @@ class SearchPage extends StatelessWidget {
           // 背景图片
           Positioned.fill(
             child: NetworkImageUtil.loadRoundedImage(
-              category.imagePath,
+              "${category?.metadata?.thumbnailImage}",
               radius: 10.r,
             ),
           ),
@@ -349,7 +501,7 @@ class SearchPage extends StatelessWidget {
           // 文字
           Center(
             child: Text(
-              category.title,
+              "${category?.name}",
               style: TextStyle(
                 fontSize: 16.sp,
                 color: Colors.white,
@@ -364,30 +516,6 @@ class SearchPage extends StatelessWidget {
               ),
             ),
           ),
-          // Z图标（针对Home appliances分类）
-          if (category.title == 'Home appliances')
-            Positioned(
-              right: 16.w,
-              top: 16.h,
-              child: Container(
-                width: 28.w,
-                height: 28.w,
-                decoration: BoxDecoration(
-                  color: toColor('FF6B35'),
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Text(
-                    'Z',
-                    style: TextStyle(
-                      fontSize: 14.sp,
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
         ],
       ),
     ),
